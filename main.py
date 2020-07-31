@@ -11,4 +11,4 @@ import pandas as pd
 # print(data)
 
 
-data = pd.read_csv('data.csv')
+data = pd.read_csv('data.csv', index_col=0).set_index("ID")

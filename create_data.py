@@ -4,6 +4,7 @@ import os
 import re
 import pandas as pd
 from time import time
+from utils import features, string_fields
 
 
 def hdf5_to_features(file_name):
@@ -62,6 +63,7 @@ def hdf5_to_features(file_name):
         pitch_means) + [pitch_var] + list(timbre_means) + [timbre_var]
 
 
+
 def MSD_to_csv(path_to_MSD):
     failed = 0
     df = []
@@ -80,12 +82,7 @@ def MSD_to_csv(path_to_MSD):
                 print(f"Finished {files_done} files in {round((time() - start) / 60, 2)} minutes.")
 
     print("Failed", failed)
-    df = pd.DataFrame(df,
-                      columns=["ID", "title", "artist", "tempo_10", "tempo_90", "tempo_var", "tempo_mean", "loud_10",
-                               "loud_90", "loud_var", "loud_mean", "pitch1", "pitch2", "pitch3", "pitch4",
-                               "pitch5", "pitch6", "pitch7", "pitch8", "pitch9", "pitch10", "pitch11", "pitch12",
-                               "pitch_var", "timbre1", "timbre2", "timbre3", "timbre4", "timbre5", "timbre6", "timbre7",
-                               "timbre8", "timbre9", "timbre10", "timbre11", "timbre12", "timbre_var"])
+    df = pd.DataFrame(df, columns=string_fields + features)
     df.to_csv("data.csv")
 
 
