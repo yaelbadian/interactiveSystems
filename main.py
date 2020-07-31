@@ -39,9 +39,9 @@ def hdf5_to_features(file_name):
     with hdf5_getters.open_h5_file_read(file_name) as reader:
 
         # ID
-        ID = hdf5_getters.get_song_id(reader)
-        title = hdf5_getters.get_title(reader)
-        artist = hdf5_getters.get_artist_name(reader)
+        ID = hdf5_getters.get_song_id(reader).decode()
+        title = hdf5_getters.get_title(reader).decode()
+        artist = hdf5_getters.get_artist_name(reader).decode()
 
         # Features 1-4
         beat_starts = hdf5_getters.get_beats_start(reader)
@@ -109,3 +109,4 @@ with hdf5_getters.open_h5_file_read(r"D:\data\MillionSongSubset\data\A\A\A\TRAAA
     print(hdf5_getters.get_segments_timbre(reader).shape)
 
 MSD_to_csv(r"D:\data\MillionSongSubset\data")
+df = pd.read_csv("data.csv")
