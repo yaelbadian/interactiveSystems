@@ -5,6 +5,10 @@ import re
 import pandas as pd
 from time import time
 from utils import features, string_fields
+import gzip
+import json
+import pickle
+import tarfile
 
 
 def hdf5_to_features(file_name):
@@ -86,9 +90,33 @@ def MSD_to_csv(path_to_MSD):
     df.to_csv("data.csv")
 
 
-with hdf5_getters.open_h5_file_read(r"D:\data\MillionSongSubset\data\A\A\A\TRAAAAW128F429D538.h5") as reader:
-    # print(hdf5_getters.get_title(reader))
-    # print(hdf5_getters.get_artist_name(reader))
-    print(hdf5_getters.get_segments_timbre(reader).shape)
+def create_playlist(playlist):
+    return sum(playlist['filtered_lists'], [])
 
-MSD_to_csv(r"D:\data\MillionSongSubset\data")
+
+def create_playlists():
+    with gzip.GzipFile('aotm2011_playlists.json.gz', 'r') as fin:
+        json_bytes = fin.read()
+
+    json_str = json_bytes.decode('utf-8')
+    playlists_df = json.loads(json_str)
+    playlists = []
+    for playlist in playlists_df:
+        playlists.append(create_playlist(playlist))
+    with open('playlists.pkl', 'wb') as f:
+        pickle.dump(playlists, f)
+
+
+def load_playlists():
+    with open('playlists.pkl', 'rb') as f:
+        playlists = pickle.load(f)
+    return playlists
+
+
+# with hdf5_getters.open_h5_file_read(r"D:\data\MillionSongSubset\data\A\A\A\TRAAAAW128F429D538.h5") as reader:
+#     # print(hdf5_getters.get_title(reader))
+#     # print(hdf5_getters.get_artist_name(reader))
+#     print(hdf5_getters.get_segments_timbre(reader).shape)
+#
+# # MSD_to_csv(r"D:\data\MillionSongSubset\data")
+
