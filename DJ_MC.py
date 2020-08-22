@@ -1,6 +1,7 @@
 from utils import features, string_fields
 import numpy as np
 import pandas as pd
+import time
 
 
 def create_bins(data):
@@ -53,7 +54,7 @@ class DJ_MC:
 
         song_percentile = []
         for feature in features:
-            percentile = np.searchsorted(self.percentiles_[feature], self.data_.loc[song].values[feature])
+            percentile = np.searchsorted(self.percentiles_[feature], self.data_.loc[song].loc[feature])
             song_percentile.append(percentile)
         return np.array(song_percentile)
 
@@ -79,8 +80,8 @@ class DJ_MC:
         """
 
         feature_vec = np.zeros(3400)
-        song_percentiles_from = self.feature_percentile(self.data_.loc[song_from].values)
-        song_percentiles_to = self.feature_percentile(self.data_.loc[song_to].values)
+        song_percentiles_from = self.feature_percentile(song_from)
+        song_percentiles_to = self.feature_percentile(song_to)
         idx = song_percentiles_from * 10 + song_percentiles_to + 100 * np.arange(0, len(features))
         feature_vec[idx] += 1
         return feature_vec
@@ -102,20 +103,20 @@ class DJ_MC:
         """
 
         feature_vec = np.zeros(340)
-        song_percentiles = self.feature_percentile(self.data_.loc[song].values)
+        song_percentiles = self.feature_percentile(song)
         idx = song_percentiles + 10 * np.arange(0, len(features))
         feature_vec[idx] += 1
         return feature_vec
 
     def M_star(self):
-        self.data_["R_s"] = self.data_.apply(lambda x: self.R_s(x.index))
+        self.data_["R_s"] = self.data_.index.to_series().apply(lambda x: self.R_s(x))
         return self.data_[self.data_["R_s"] >= np.median(self.data_["R_s"])]
 
     def R_s(self, song):
-        return self.theta_s(self.data_.loc[song].values) @ self.phi_s_
+        return self.theta_s(song) @ self.phi_s_
 
     def R_t(self, song_from, song_to):
-        return self.theta_t(self.data_.loc[song_from].values, self.data_.loc[song_to].values) @ self.phi_t_
+        return self.theta_t(song_from, song_to) @ self.phi_t_
 
     def algorithm_1(self):
         for song in self.song_pref_:
@@ -127,13 +128,15 @@ class DJ_MC:
             self.phi_t_ += self.theta_t(song_prev, song_curr) * (1 / (self.kt_ + 1))
 
     def algorithm_3(self):
+        print("Alg 3")
         rewards = []
         songs = []
         for k in range(self.K_):
+            start_time = time.time()
             curr_song = self.algorithm_4(self.K_ - k)
             song_reward = self.R_s(curr_song)
             trans_reward = self.R_t(songs[-1], curr_song) if k else 0
-            r_i = self.R_s(curr_song) + self.R_t(songs[-1], curr_song)
+            r_i = song_reward + trans_reward
 
             songs.append(curr_song)
             rewards.append(r_i)
@@ -145,28 +148,29 @@ class DJ_MC:
             w_t = 1 - w_s
             self.phi_s_ = (1 / (k + 2)) * self.phi_s_ + (1 / (k + 2)) * self.theta_s(curr_song) * w_s * r_inc
             if k:
-                self.phi_t_ = (1 / (k + 2)) * self.phi_t_ + (1 / (k + 2)) * self.theta_t(songs[-1], curr_song) * w_s * r_inc
+                self.phi_t_ = (1 / (k + 2)) * self.phi_t_ + (1 / (k + 2)) * self.theta_t(songs[-1], curr_song) * w_t * r_inc
             else:
                 self.phi_t_ = (1 / (k + 2)) * self.phi_t_
             
             for i in range(34):  # 34 = number of features
                 self.phi_s_[i * 10: (i + 1) * 10] /= sum(self.phi_s_[i * 10: (i + 1) * 10])
                 self.phi_t_[i * 100: (i + 1) * 100] /= sum(self.phi_t_[i * 100: (i + 1) * 100])
+            print("--- %s seconds ---" % (time.time() - start_time))
 
-
-    def algorithm_4(self, horizon, T=10000):
+    def algorithm_4(self, horizon, T=3000):
+        print("Alg 4")
         best_trajectory = []
         highest_expected_payoff = -float("inf")
+        start_time = time.time()
         M_star = self.M_star()
+        print("--- %s seconds ---" % (time.time() - start_time))
         for _ in range(T):
-            trajectory = M_star.index.sample(horizon)
+            trajectory = M_star.index.to_series().sample(horizon)
             expected_payoff = self.R_s(trajectory[0]) + sum(self.R_t(x[0], x[1]) + self.R_s(x[1]) for x in zip(trajectory[:-1], trajectory[1:]))
             if expected_payoff > highest_expected_payoff:
                 highest_expected_payoff = expected_payoff
                 best_trajectory = trajectory
         return best_trajectory[0]
-
-
 
     def algorithm_5(self):
         self.algorithm_1()
