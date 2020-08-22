@@ -12,6 +12,7 @@ from DJ_MC import DJ_MC
 # print(data)
 
 
-# data = pd.read_csv('data.csv', index_col=0).set_index("ID")
+data = pd.read_csv('data.csv', index_col=0).set_index("ID")
+print(data.columns)
 
 
