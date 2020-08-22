@@ -20,3 +20,9 @@ playlists = load_playlists()
 # print(np.mean([len(x) for x in playlists]))
 model = DJ_MC(data.drop(["title", "artist"], axis=1), playlists[0], 2)
 model.algorithm_5()
+
+import pickle
+with open("model.pkl", 'wb') as f:
+    pickle.dump(model, f)
+
+    

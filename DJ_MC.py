@@ -32,6 +32,27 @@ class DJ_MC:
         self.phi_t_ = np.zeros(3400) + 1 / (self.kt_ + 100)
         self.K_ = K
 
+    def __getstate__(self):
+        return {"data": self.data_,
+                "percentiles": self.percentiles_,
+                "song_pref": self.song_pref_,
+                "ks": self.ks_,
+                "kt": self.kt_,
+                "phi_s": self.phi_s_,
+                "phi_t": self.phi_t_,
+                "K": self.K_}
+
+    def __setstate__(self, state_dict):
+        self.data_ = state_dict["data"]
+        self.percentiles_ = state_dict["percentiles"]
+        self.song_pref_ = state_dict["song_pref"]
+        self.ks_ = state_dict["ks"]
+        self.kt_ = state_dict["kt"]
+        self.phi_s_ = state_dict["phi_s"]
+        self.phi_t_ = state_dict["phi_t"]
+        self.K_ = state_dict["K"]
+        return self
+
     def feature_percentile(self, song):
         """
         Given a song vector (from data.csv) return a list of
