@@ -21,7 +21,7 @@ def create_bins(data):
 
 class DJ_MC:
 
-    def __init__(self, data, playlists, song_pref):
+    def __init__(self, data, playlists, song_pref, K):
         self.data_ = data
         self.playlists_ = playlists
         self.percentiles_ = create_bins(data)
@@ -30,8 +30,9 @@ class DJ_MC:
         self.kt_ = self.ks_
         self.phi_s_ = np.zeros(340) + 1 / (self.ks_ + 10)
         self.phi_t_ = np.zeros(3400) + 1 / (self.kt_ + 100)
+        self.K_ = K
 
-    def feature_percentile(self, song_vec):
+    def feature_percentile(self, song):
         """
         Given a song vector (from data.csv) return a list of
         the percentile range each features fall under.
@@ -53,11 +54,11 @@ class DJ_MC:
 
         song_percentile = []
         for feature in features:
-            percentile = np.searchsorted(self.percentiles_[feature], song_vec[feature])
+            percentile = np.searchsorted(self.percentiles_[feature], self.data_.loc[song].values[feature])
             song_percentile.append(percentile)
         return np.array(song_percentile)
 
-    def theta_t(self, song_vec_from, song_vec_to):
+    def theta_t(self, song_from, song_to):
         """
         Returns the binarized feature vector for a
         transition between two songs.
@@ -79,13 +80,13 @@ class DJ_MC:
         """
 
         feature_vec = np.zeros(3400)
-        song_percentiles_from = self.feature_percentile(song_vec_from)
-        song_percentiles_to = self.feature_percentile(song_vec_to)
+        song_percentiles_from = self.feature_percentile(self.data_.loc[song_from].values)
+        song_percentiles_to = self.feature_percentile(self.data_.loc[song_to].values)
         idx = song_percentiles_from * 10 + song_percentiles_to + 100 * np.arange(0, len(features))
         feature_vec[idx] += 1
         return feature_vec
 
-    def theta_s(self, song_vec):
+    def theta_s(self, song):
         """
         Returns the binarized feature vector for a song.
 
@@ -102,25 +103,71 @@ class DJ_MC:
         """
 
         feature_vec = np.zeros(340)
-        song_percentiles = self.feature_percentile(song_vec)
+        song_percentiles = self.feature_percentile(self.data_.loc[song].values)
         idx = song_percentiles + 10 * np.arange(0, len(features))
         feature_vec[idx] += 1
         return feature_vec
 
+    def M_star(self):
+        self.data_["R_s"] = self.data_.apply(lambda x: self.R_s(x.index))
+        return self.data_[self.data_["R_s"] >= np.median(self.data_["R_s"])]
+
+    def R_s(self, song):
+        return self.theta_s(self.data_.loc[song].values) @ self.phi_s_
+
+    def R_t(self, song_from, song_to):
+        return self.theta_t(self.data_.loc[song_from].values, self.data_.loc[song_to].values) @ self.phi_t_
+
     def algorithm_1(self):
         for song in self.song_pref_:
-            self.phi_s_ += self.theta_s(self.data_[song]) * (1 / (self.ks_ + 1))
+            self.phi_s_ += self.theta_s(song) * (1 / (self.ks_ + 1))
 
     def algorithm_2(self):
         song_prev = self.song_pref_[0]
         for song_curr in self.song_pref_[1:]:
-            self.phi_t_ += self.theta_t(self.data_[song_prev], self.data_[song_curr]) * (1 / (self.kt_ + 1))
+            self.phi_t_ += self.theta_t(song_prev, song_curr) * (1 / (self.kt_ + 1))
 
     def algorithm_3(self):
-        pass
+        rewards = []
+        songs = []
+        for k in range(self.K_):
+            curr_song = self.algorithm_4(self.K_ - k)
+            song_reward = self.R_s(curr_song)
+            trans_reward = self.R_t(songs[-1], curr_song) if k else 0
+            r_i = self.R_s(curr_song) + self.R_t(songs[-1], curr_song)
 
-    def algorithm_4(self):
-        pass
+            songs.append(curr_song)
+            rewards.append(r_i)
+
+            r_avg = np.mean(rewards)
+            r_inc = np.log(r_i / r_avg)
+
+            w_s = song_reward / (song_reward + trans_reward)
+            w_t = 1 - w_s
+            self.phi_s_ = (1 / (k + 2)) * self.phi_s_ + (1 / (k + 2)) * self.theta_s(curr_song) * w_s * r_inc
+            if k:
+                self.phi_t_ = (1 / (k + 2)) * self.phi_t_ + (1 / (k + 2)) * self.theta_t(songs[-1], curr_song) * w_s * r_inc
+            else:
+                self.phi_t_ = (1 / (k + 2)) * self.phi_t_
+            
+            for i in range(34):  # 34 = number of features
+                self.phi_s_[i * 10: (i + 1) * 10] /= sum(self.phi_s_[i * 10: (i + 1) * 10])
+                self.phi_t_[i * 100: (i + 1) * 100] /= sum(self.phi_t_[i * 100: (i + 1) * 100])
+
+
+    def algorithm_4(self, horizon, T=10000):
+        best_trajectory = []
+        highest_expected_payoff = -float("inf")
+        M_star = self.M_star()
+        for _ in range(T):
+            trajectory = M_star.index.sample(horizon)
+            expected_payoff = self.R_s(trajectory[0]) + sum(self.R_t(x[0], x[1]) + self.R_s(x[1]) for x in zip(trajectory[:-1], trajectory[1:]))
+            if expected_payoff > highest_expected_payoff:
+                highest_expected_payoff = expected_payoff
+                best_trajectory = trajectory
+        return best_trajectory[0]
+
+
 
     def algorithm_5(self):
         pass
