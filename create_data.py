@@ -95,6 +95,9 @@ def create_playlist(playlist):
 
 
 def create_playlists():
+
+    data = list(pd.read_csv('data.csv', index_col=0)["ID"])
+
     with gzip.GzipFile('aotm2011_playlists.json.gz', 'r') as fin:
         json_bytes = fin.read()
 
@@ -102,7 +105,9 @@ def create_playlists():
     playlists_df = json.loads(json_str)
     playlists = []
     for playlist in playlists_df:
-        playlists.append(create_playlist(playlist))
+        playlist = [song for song in create_playlist(playlist) if song in data]
+        if playlist:
+            playlists.append(playlist)
     with open('playlists.pkl', 'wb') as f:
         pickle.dump(playlists, f)
 

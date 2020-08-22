@@ -21,9 +21,8 @@ def create_bins(data):
 
 class DJ_MC:
 
-    def __init__(self, data, playlists, song_pref, K):
+    def __init__(self, data, song_pref, K):
         self.data_ = data
-        self.playlists_ = playlists
         self.percentiles_ = create_bins(data)
         self.song_pref_ = song_pref
         self.ks_ = len(song_pref)
@@ -170,4 +169,6 @@ class DJ_MC:
 
 
     def algorithm_5(self):
-        pass
+        self.algorithm_1()
+        self.algorithm_2()
+        self.algorithm_3()
