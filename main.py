@@ -2,7 +2,6 @@
 # import json
 # import tarfile
 import pandas as pd
-from DJ_MC import DJ_MC
 
 # with gzip.GzipFile('aotm2011_playlists.json.gz', 'r') as fin:
 #     json_bytes = fin.read()
