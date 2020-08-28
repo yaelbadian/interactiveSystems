@@ -20,15 +20,16 @@ seaborn.set()
 # create_playlists()
 data = pd.read_csv('data.csv', index_col=0).set_index("ID")
 playlists = load_playlists()
+playlist = max(playlists, key=lambda x: len(x))
 # print(len(playlists))
 # print(np.mean([len(x) for x in playlists]))
-model = DJ_MC(data.drop(["title", "artist"], axis=1), playlists[0], 2, data[["title", "artist"]])
+model = DJ_MC(data.drop(["title", "artist"], axis=1), playlist, len(playlist), data[["title", "artist"]])
 model.algorithm_5()
 
 with open("model.pkl", 'wb') as f:
     pickle.dump(model, f)
 
-with open("model_T=3000.pkl", 'rb') as f:
+with open("model.pkl", 'rb') as f:
     model = pickle.load(f)
 print((np.array([len(x) for x in playlists]) >= 3).sum())
 print("random")

@@ -181,7 +181,7 @@ class DJ_MC:
                 self.phi_t_[i * 100: (i + 1) * 100] /= sum(self.phi_t_[i * 100: (i + 1) * 100])
             print("--- %s seconds ---" % (time.time() - start_time))
 
-    def algorithm_4(self, horizon, T=300):
+    def algorithm_4(self, horizon, T=1000):
         best_trajectory = []
         highest_expected_payoff = -float("inf")
         start_time = time.time()
@@ -200,7 +200,7 @@ class DJ_MC:
         songs = []
         for k in range(self.K_):
             start_time = time.time()
-            curr_song = self.algorithm_4(self.K_ - k)
+            curr_song = self.algorithm_4_with_human(self.K_ - k)
 
             while True:
                 enjoyed_song = input(f"Do you like the song {self.song_info_.loc[curr_song, 'title']} by {self.song_info_.loc[curr_song, 'artist']} (y/n)?")
