@@ -22,7 +22,7 @@ def create_bins(data):
 
 class DJ_MC:
 
-    def __init__(self, data, song_pref, K):
+    def __init__(self, data, song_pref, K, song_info):
         self.data_ = data
         self.percentiles_ = create_bins(data)
         self.song_pref_ = song_pref
@@ -31,6 +31,7 @@ class DJ_MC:
         self.phi_s_ = np.zeros(340) + 1 / (self.ks_ + 10)
         self.phi_t_ = np.zeros(3400) + 1 / (self.kt_ + 100)
         self.K_ = K
+        self.song_info_ = song_info
 
     def __getstate__(self):
         return {"data": self.data_,
@@ -40,7 +41,8 @@ class DJ_MC:
                 "kt": self.kt_,
                 "phi_s": self.phi_s_,
                 "phi_t": self.phi_t_,
-                "K": self.K_}
+                "K": self.K_,
+                "song_info": self.song_info_}
 
     def __setstate__(self, state_dict):
         self.data_ = state_dict["data"]
@@ -51,6 +53,7 @@ class DJ_MC:
         self.phi_s_ = state_dict["phi_s"]
         self.phi_t_ = state_dict["phi_t"]
         self.K_ = state_dict["K"]
+        self.song_info_ = state_dict["song_info"]
         return self
 
     def feature_percentile(self, song):
@@ -130,8 +133,8 @@ class DJ_MC:
         return feature_vec
 
     def M_star(self):
-        self.data_["R_s"] = self.data_.index.to_series().apply(lambda x: self.R_s(x))
-        return self.data_[self.data_["R_s"] >= np.median(self.data_["R_s"])]
+        R_s = self.data_.index.to_series().apply(lambda x: self.R_s(x))
+        return self.data_[R_s >= np.median(R_s)]
 
     def R_s(self, song):
         return self.theta_s(song) @ self.phi_s_
@@ -167,19 +170,18 @@ class DJ_MC:
 
             w_s = song_reward / (song_reward + trans_reward)
             w_t = 1 - w_s
-            self.phi_s_ = (1 / (k + 2)) * self.phi_s_ + (1 / (k + 2)) * self.theta_s(curr_song) * w_s * r_inc
+            self.phi_s_ = ((k + 1) / (k + 2)) * self.phi_s_ + (1 / (k + 2)) * self.theta_s(curr_song) * w_s * r_inc
             if k:
-                self.phi_t_ = (1 / (k + 2)) * self.phi_t_ + (1 / (k + 2)) * self.theta_t(songs[-1], curr_song) * w_t * r_inc
+                self.phi_t_ = ((k + 1) / (k + 2)) * self.phi_t_ + (1 / (k + 2)) * self.theta_t(songs[-1], curr_song) * w_t * r_inc
             else:
-                self.phi_t_ = (1 / (k + 2)) * self.phi_t_
+                self.phi_t_ = ((k + 1) / (k + 2)) * self.phi_t_
             
             for i in range(34):  # 34 = number of features
                 self.phi_s_[i * 10: (i + 1) * 10] /= sum(self.phi_s_[i * 10: (i + 1) * 10])
                 self.phi_t_[i * 100: (i + 1) * 100] /= sum(self.phi_t_[i * 100: (i + 1) * 100])
             print("--- %s seconds ---" % (time.time() - start_time))
 
-    def algorithm_4(self, horizon, T=3000):
-        print("Alg 4")
+    def algorithm_4(self, horizon, T=300):
         best_trajectory = []
         highest_expected_payoff = -float("inf")
         start_time = time.time()
@@ -193,7 +195,93 @@ class DJ_MC:
                 best_trajectory = trajectory
         return best_trajectory[0]
 
+    def algorithm_3_with_human(self):
+        rewards = []
+        songs = []
+        for k in range(self.K_):
+            start_time = time.time()
+            curr_song = self.algorithm_4(self.K_ - k)
+
+            while True:
+                enjoyed_song = input(f"Do you like the song {self.song_info_.loc[curr_song, 'title']} by {self.song_info_.loc[curr_song, 'artist']} (y/n)?")
+                if enjoyed_song in ["y", "n"]:
+                    break
+            enjoyed_song = 1 if enjoyed_song == "y" else -1
+
+            song_reward = self.R_s(curr_song)
+            trans_reward = self.R_t(songs[-1], curr_song) if k else 0
+            r_i = song_reward + trans_reward
+
+            songs.append(curr_song)
+            rewards.append(r_i)
+
+            r_avg = np.mean(rewards)
+            r_inc = np.log(r_i / r_avg)
+
+            w_s = song_reward / (song_reward + trans_reward)
+            w_t = 1 - w_s
+            self.phi_s_ = ((k + 1) / (k + 2)) * self.phi_s_ + enjoyed_song * (1 / (k + 2)) * self.theta_s(curr_song) * w_s * r_inc
+            if k:
+                enjoyed_transition = 1 if enjoyed_transition == "y" else -1
+                while True:
+                    enjoyed_transition = input(f"Did you think the transition between songs was smooth (y/n)?")
+                    if enjoyed_transition in ["y", "n"]:
+                        break
+                self.phi_t_ = ((k + 1) / (k + 2)) * self.phi_t_ + enjoyed_transition * (1 / (k + 2)) * self.theta_t(songs[-1], curr_song) * w_t * r_inc
+            else:
+                self.phi_t_ = ((k + 1) / (k + 2)) * self.phi_t_
+            
+            for i in range(34):  # 34 = number of features
+                self.phi_s_[i * 10: (i + 1) * 10] /= sum(self.phi_s_[i * 10: (i + 1) * 10])
+                self.phi_t_[i * 100: (i + 1) * 100] /= sum(self.phi_t_[i * 100: (i + 1) * 100])
+
+    def algorithm_4_with_human(self, horizon, T=300):
+        best_trajectory = []
+        highest_expected_payoff = -float("inf")
+        for _ in range(T):
+            trajectory = self.data_.index.to_series().sample(horizon)
+            expected_payoff = self.R_s(trajectory[0]) + sum(self.R_t(x[0], x[1]) + self.R_s(x[1]) for x in zip(trajectory[:-1], trajectory[1:]))
+            if expected_payoff > highest_expected_payoff:
+                highest_expected_payoff = expected_payoff
+                best_trajectory = trajectory
+        return best_trajectory[0]
+
+    # fit
     def algorithm_5(self):
         self.algorithm_1()
         self.algorithm_2()
         self.algorithm_3()
+
+    def random_predict(self):
+        songs = self.data_.index.to_series().sample(self.K_).values
+        R_s = self.data_.index.to_series().apply(lambda x: self.R_s(x))
+        rewards = [R_s[songs[0]]]
+        for i in range(1, self.K_):
+            rewards.append(rewards[-1] + R_s[songs[i]] + self.R_t(songs[i - 1], songs[i]))
+        return songs, rewards
+    
+    def greedy_predict(self):
+        R_s = self.data_.index.to_series().apply(lambda x: self.R_s(x))
+        songs = []
+        rewards = []
+        for i in range(self.K_):
+            best_song = R_s.idxmax()
+            songs.append(best_song)
+            rewards.append(R_s[best_song] + (0 if i == 0 else rewards[-1] + self.R_t(songs[i - 1], best_song)))
+            R_s = R_s.drop(best_song)
+        return songs, rewards
+
+    def DJ_MC_predict(self):
+        songs = []
+        R_s = self.data_.index.to_series().apply(lambda x: self.R_s(x))
+        first_song = R_s.idxmax()
+        songs.append(first_song)
+        rewards = [R_s[first_song]]
+        for _ in range(1, self.K_):
+            start_time = time.time()
+            R = self.data_.index.to_series().apply(lambda x: self.R_s(x) + self.R_t(songs[-1], x))
+            R = R.drop(songs)
+            songs.append(R.idxmax())
+            rewards.append(rewards[-1] + R.max())
+            print(time.time() - start_time)
+        return songs, rewards
