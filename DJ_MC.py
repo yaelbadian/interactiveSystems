@@ -203,7 +203,7 @@ class DJ_MC:
             curr_song = self.algorithm_4_with_human(self.K_ - k)
 
             while True:
-                enjoyed_song = input(f"Do you like the song {self.song_info_.loc[curr_song, 'title']} by {self.song_info_.loc[curr_song, 'artist']} (y/n)?")
+                enjoyed_song = input(f"Do you like the song {self.song_info_.loc[curr_song, 'title']} by {self.song_info_.loc[curr_song, 'artist']} (y/n)? ")
                 if enjoyed_song in ["y", "n"]:
                     break
             enjoyed_song = 1 if enjoyed_song == "y" else -1
@@ -222,11 +222,11 @@ class DJ_MC:
             w_t = 1 - w_s
             self.phi_s_ = ((k + 1) / (k + 2)) * self.phi_s_ + enjoyed_song * (1 / (k + 2)) * self.theta_s(curr_song) * w_s * r_inc
             if k:
-                enjoyed_transition = 1 if enjoyed_transition == "y" else -1
                 while True:
-                    enjoyed_transition = input(f"Did you think the transition between songs was smooth (y/n)?")
+                    enjoyed_transition = input(f"Did you think the transition between songs was smooth (y/n)? ")
                     if enjoyed_transition in ["y", "n"]:
                         break
+                enjoyed_transition = 1 if enjoyed_transition == "y" else -1
                 self.phi_t_ = ((k + 1) / (k + 2)) * self.phi_t_ + enjoyed_transition * (1 / (k + 2)) * self.theta_t(songs[-1], curr_song) * w_t * r_inc
             else:
                 self.phi_t_ = ((k + 1) / (k + 2)) * self.phi_t_
@@ -251,6 +251,11 @@ class DJ_MC:
         self.algorithm_1()
         self.algorithm_2()
         self.algorithm_3()
+
+    def algorithm_5_with_human(self):
+        self.algorithm_1()
+        self.algorithm_2()
+        self.algorithm_3_with_human()
 
     def random_predict(self):
         songs = self.data_.index.to_series().sample(self.K_).values

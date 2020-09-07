@@ -24,9 +24,9 @@ playlist = max(playlists, key=lambda x: len(x))
 # print(len(playlists))
 # print(np.mean([len(x) for x in playlists]))
 model = DJ_MC(data.drop(["title", "artist"], axis=1), playlist, len(playlist), data[["title", "artist"]])
-model.algorithm_5()
+model.algorithm_5_with_human()
 
-with open("model.pkl", 'wb') as f:
+with open("model_with_human.pkl", 'wb') as f:
     pickle.dump(model, f)
 
 with open("model.pkl", 'rb') as f:
